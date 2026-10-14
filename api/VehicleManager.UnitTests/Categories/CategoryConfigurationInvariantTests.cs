@@ -21,12 +21,12 @@ public class CategoryConfigurationInvariantTests
         var random = new Random(seed);
         var configuration = Default();
         var nextId = 100;
-        var accepted = 0;
+        var acceptedByKind = new Dictionary<string, int> { ["create"] = 0, ["edit"] = 0, ["delete"] = 0 };
 
         for (var step = 0; step < Steps; step++)
         {
             var before = Snapshot(configuration);
-            var result = ApplyRandomChange(random, configuration, step);
+            var (kind, result) = ApplyRandomChange(random, configuration, step);
 
             if (!result.IsValid)
             {
@@ -42,7 +42,7 @@ public class CategoryConfigurationInvariantTests
                 category.Id = nextId++;
             }
 
-            accepted++;
+            acceptedByKind[kind]++;
 
             CategoryConfigurationValidator.Validate(configuration).IsValid.Should().BeTrue();
 
@@ -53,19 +53,22 @@ public class CategoryConfigurationInvariantTests
             }
         }
 
-        accepted.Should().BeGreaterThan(50, "the run should exercise real changes, not just rejections");
+        foreach (var (kind, count) in acceptedByKind)
+        {
+            count.Should().BeGreaterThan(5, $"the run should accept some {kind} changes, not only rejections");
+        }
     }
 
-    private static CategoryConfigurationResult ApplyRandomChange(Random random, List<Category> configuration, int step)
+    private static (string Kind, CategoryConfigurationResult Result) ApplyRandomChange(
+        Random random, List<Category> configuration, int step)
     {
         var target = configuration[random.Next(configuration.Count)];
 
         return random.Next(3) switch
         {
-            0 => RandomCreate(random, configuration, target, step),
-            1 => CategoryConfigurationChanges.Edit(
-                configuration, target.Id, target.Name, target.Icon, RandomWeight(random)),
-            _ => CategoryConfigurationChanges.Delete(configuration, target.Id)
+            0 => ("create", RandomCreate(random, configuration, target, step)),
+            1 => ("edit", RandomEdit(random, configuration, target)),
+            _ => ("delete", CategoryConfigurationChanges.Delete(configuration, target.Id))
         };
     }
 
@@ -86,6 +89,31 @@ public class CategoryConfigurationInvariantTests
 
         decimal? max = random.Next(2) == 0 ? null : RandomWeight(random);
         return CategoryConfigurationChanges.Create(configuration, name, icon, RandomWeight(random), max);
+    }
+
+    // Half the time pick bounds that fit between the neighbours, so real edits happen; otherwise anything goes.
+    private static CategoryConfigurationResult RandomEdit(Random random, List<Category> configuration, Category target)
+    {
+        var ordered = configuration.OrderBy(category => category.MinWeightKg).ToList();
+        var index = ordered.IndexOf(target);
+        var below = index > 0 ? ordered[index - 1] : null;
+        var above = index < ordered.Count - 1 ? ordered[index + 1] : null;
+
+        if (random.Next(2) == 0)
+        {
+            decimal? min = below is null ? 0m : RandomBetween(random, below.MinWeightKg, target.MaxWeightKg);
+            decimal? max = above is null || min is null ? null : RandomBetween(random, min.Value, above.MaxWeightKg);
+
+            if (min is { } newMin && (above is null || max is not null))
+            {
+                return CategoryConfigurationChanges.Edit(
+                    configuration, target.Id, target.Name, target.Icon, newMin, max);
+            }
+        }
+
+        decimal? anyMax = random.Next(2) == 0 ? null : RandomWeight(random);
+        return CategoryConfigurationChanges.Edit(
+            configuration, target.Id, target.Name, target.Icon, RandomWeight(random), anyMax);
     }
 
     // A weight strictly between two bounds, or null when there is no room.

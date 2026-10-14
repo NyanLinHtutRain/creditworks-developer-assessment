@@ -16,7 +16,7 @@ public static class CategoryConfigurationChanges
     {
         ArgumentNullException.ThrowIfNull(existing);
 
-        var rangeError = CheckNewRange(minWeightKg, maxWeightKg);
+        var rangeError = CheckRange(minWeightKg, maxWeightKg);
 
         if (rangeError is not null)
         {
@@ -81,13 +81,14 @@ public static class CategoryConfigurationChanges
         return CategoryConfigurationValidator.Validate(proposed);
     }
 
-    // Moving the lower bound carries the previous category's upper bound with it, since they are the same boundary.
+    // Each bound is shared with a neighbour, so moving one carries the neighbour's matching bound with it.
     public static CategoryConfigurationResult Edit(
         IEnumerable<Category> existing,
         int categoryId,
         string? name,
         string? icon,
-        decimal minWeightKg)
+        decimal minWeightKg,
+        decimal? maxWeightKg)
     {
         ArgumentNullException.ThrowIfNull(existing);
 
@@ -99,7 +100,7 @@ public static class CategoryConfigurationChanges
             return CategoryConfigurationResult.Failure("The category being edited no longer exists.");
         }
 
-        var errors = ValidateBoundMove(ordered, index, minWeightKg);
+        var errors = ValidateRangeMove(ordered, index, minWeightKg, maxWeightKg);
 
         if (errors.Count > 0)
         {
@@ -111,10 +112,16 @@ public static class CategoryConfigurationChanges
         proposed[index].Name = name?.Trim() ?? string.Empty;
         proposed[index].Icon = icon?.Trim() ?? string.Empty;
         proposed[index].MinWeightKg = minWeightKg;
+        proposed[index].MaxWeightKg = maxWeightKg;
 
         if (index > 0)
         {
             proposed[index - 1].MaxWeightKg = minWeightKg;
+        }
+
+        if (index < proposed.Count - 1 && maxWeightKg is { } end)
+        {
+            proposed[index + 1].MinWeightKg = end;
         }
 
         return CategoryConfigurationValidator.Validate(proposed);
@@ -157,56 +164,58 @@ public static class CategoryConfigurationChanges
     }
 
     // Checked before rebuilding so the caller hears about the move it asked for, not a generic coverage complaint.
-    private static List<string> ValidateBoundMove(List<Category> ordered, int index, decimal minWeightKg)
+    private static List<string> ValidateRangeMove(
+        List<Category> ordered, int index, decimal minWeightKg, decimal? maxWeightKg)
     {
-        var errors = new List<string>();
-        var category = ordered[index];
+        var rangeError = CheckRange(minWeightKg, maxWeightKg);
 
-        if (CategoryRules.HasTooManyDecimalPlaces(minWeightKg))
+        if (rangeError is not null)
+        {
+            return [rangeError];
+        }
+
+        var errors = new List<string>();
+        var name = CategoryText.DisplayName(ordered[index]);
+        var isLowest = index == 0;
+        var isHighest = index == ordered.Count - 1;
+
+        if (isLowest && minWeightKg != 0m)
+        {
+            errors.Add($"'{name}' is the lowest category and must start at 0.00 kg.");
+        }
+
+        if (isHighest && maxWeightKg is not null)
         {
             errors.Add(
-                $"The lower weight bound for category '{CategoryText.DisplayName(category)}' " +
-                $"must have at most {CategoryRules.WeightDecimalPlaces} decimal places.");
-            return errors;
+                $"'{name}' is the highest category and must stay open-ended, so it cannot have an upper bound. " +
+                "To end it sooner, add a category above it.");
         }
 
-        if (index == 0)
+        if (!isHighest && maxWeightKg is null)
         {
-            if (minWeightKg != 0m)
-            {
-                errors.Add(
-                    $"'{CategoryText.DisplayName(category)}' is the lowest category and must start at 0.00 kg. " +
-                    "To change where it ends, edit the lower bound of the category above it.");
-            }
-
-            return errors;
+            errors.Add($"'{name}' is not the highest category, so it needs an upper bound.");
         }
 
-        var below = ordered[index - 1];
-
-        if (minWeightKg <= below.MinWeightKg)
+        if (!isLowest && minWeightKg <= ordered[index - 1].MinWeightKg)
         {
+            var below = ordered[index - 1];
+
             errors.Add(
                 $"{CategoryText.Weight(minWeightKg)} kg is not above '{CategoryText.DisplayName(below)}', which starts at " +
-                $"{CategoryText.Weight(below.MinWeightKg)} kg. '{CategoryText.DisplayName(category)}' must start above the category below it.");
+                $"{CategoryText.Weight(below.MinWeightKg)} kg. '{name}' must start above the category below it.");
         }
 
-        if (index < ordered.Count - 1)
+        if (!isHighest && maxWeightKg is { } end && ordered[index + 1].MaxWeightKg is { } aboveEnd && end >= aboveEnd)
         {
-            var above = ordered[index + 1];
-
-            if (minWeightKg >= above.MinWeightKg)
-            {
-                errors.Add(
-                    $"{CategoryText.Weight(minWeightKg)} kg is not below '{CategoryText.DisplayName(above)}', which starts at " +
-                    $"{CategoryText.Weight(above.MinWeightKg)} kg. '{CategoryText.DisplayName(category)}' must start below the category above it.");
-            }
+            errors.Add(
+                $"{CategoryText.Weight(end)} kg is not below the end of '{CategoryText.DisplayName(ordered[index + 1])}' " +
+                $"({CategoryText.Weight(aboveEnd)} kg), so it would leave no room for it.");
         }
 
         return errors;
     }
 
-    private static string? CheckNewRange(decimal minWeightKg, decimal? maxWeightKg)
+    private static string? CheckRange(decimal minWeightKg, decimal? maxWeightKg)
     {
         if (CategoryRules.HasTooManyDecimalPlaces(minWeightKg) ||
             (maxWeightKg is { } preciseEnd && CategoryRules.HasTooManyDecimalPlaces(preciseEnd)))
