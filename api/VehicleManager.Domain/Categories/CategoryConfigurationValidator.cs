@@ -57,9 +57,9 @@ public static class CategoryConfigurationValidator
         {
             errors.Add($"An icon is required for {label}.");
         }
-        else if (category.Icon.Trim().Length > CategoryRules.MaxIconLength)
+        else if (!CategoryIcons.IsAllowed(category.Icon))
         {
-            errors.Add($"The icon for {label} must be {CategoryRules.MaxIconLength} characters or fewer.");
+            errors.Add($"The icon for {label} is not recognised. Choose one of: {string.Join(", ", CategoryIcons.Allowed)}.");
         }
     }
 

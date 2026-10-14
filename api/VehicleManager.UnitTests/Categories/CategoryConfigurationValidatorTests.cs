@@ -202,6 +202,35 @@ public class CategoryConfigurationValidatorTests
         result.Errors.Should().Contain(error => error.Contains("An icon is required"));
     }
 
+    [Theory]
+    [InlineData("rocket")]
+    [InlineData("CAR")]
+    [InlineData("🚗")]
+    public void An_icon_outside_the_allowed_set_is_rejected(string icon)
+    {
+        var configuration = Default();
+        configuration[1].Icon = icon;
+
+        var result = CategoryConfigurationValidator.Validate(configuration);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().ContainSingle()
+            .Which.Should().Contain("is not recognised").And.Contain("delivery-truck");
+    }
+
+    [Fact]
+    public void Every_allowed_icon_is_accepted()
+    {
+        foreach (var icon in CategoryIcons.Allowed)
+        {
+            var configuration = Default();
+            configuration[1].Icon = icon;
+
+            CategoryConfigurationValidator.Validate(configuration).IsValid
+                .Should().BeTrue($"'{icon}' is an allowed icon");
+        }
+    }
+
     [Fact]
     public void A_name_that_differs_only_by_case_is_rejected_as_a_duplicate()
     {
