@@ -11,7 +11,7 @@ A vehicle's category is never stored — it is resolved from the vehicle's weigh
 | API | .NET 8, ASP.NET Core Web API |
 | Data access | Entity Framework Core 8 |
 | Database | Microsoft SQL Server 2022 |
-| Frontend | React + TypeScript (Vite), Tailwind CSS |
+| Frontend | React + TypeScript (Vite), IBM Carbon Design System |
 | Tests | xUnit, FluentAssertions |
 
 ## Quick start
