@@ -110,13 +110,53 @@ public class CategoryConfigurationChangesTests
         result.Errors.Should().ContainSingle().Which.Should().Contain("no longer exists");
     }
 
-    [Fact]
-    public void An_edit_that_would_break_a_bound_is_rejected_by_the_validator()
+    [Theory]
+    [InlineData("500.001")]
+    [InlineData("2500.004")]
+    public void An_edit_with_more_than_two_decimal_places_is_reported_as_a_precision_problem(string minWeight)
     {
-        var result = CategoryConfigurationChanges.Edit(Default(), MediumId, "Medium", "van", Kg("500.001"));
+        var result = CategoryConfigurationChanges.Edit(Default(), MediumId, "Medium", "van", Kg(minWeight));
 
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(error => error.Contains("at most 2 decimal places"));
+        result.Errors.Should().ContainSingle().Which.Should().Contain("at most 2 decimal places");
+    }
+
+    [Fact]
+    public void Creating_a_category_with_an_existing_name_is_rejected()
+    {
+        var result = CategoryConfigurationChanges.Create(Default(), "light", "bus", 5000m);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().ContainSingle().Which.Should().Contain("used more than once");
+    }
+
+    [Fact]
+    public void Renaming_a_category_to_an_existing_name_is_rejected()
+    {
+        var result = CategoryConfigurationChanges.Edit(Default(), HeavyId, "medium", "delivery-truck", 2500m);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().ContainSingle().Which.Should().Contain("used more than once");
+    }
+
+    [Fact]
+    public void A_null_name_or_icon_is_rejected_on_create_rather_than_throwing()
+    {
+        var result = CategoryConfigurationChanges.Create(Default(), null, null, 5000m);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(error => error.Contains("A name is required"));
+        result.Errors.Should().Contain(error => error.Contains("An icon is required"));
+    }
+
+    [Fact]
+    public void A_null_name_or_icon_is_rejected_on_edit_rather_than_throwing()
+    {
+        var result = CategoryConfigurationChanges.Edit(Default(), MediumId, null, null, 500m);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(error => error.Contains("A name is required"));
+        result.Errors.Should().Contain(error => error.Contains("An icon is required"));
     }
 
     [Fact]

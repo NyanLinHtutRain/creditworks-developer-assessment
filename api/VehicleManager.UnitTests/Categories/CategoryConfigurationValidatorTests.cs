@@ -244,6 +244,18 @@ public class CategoryConfigurationValidatorTests
     }
 
     [Fact]
+    public void A_name_that_differs_only_by_surrounding_spaces_is_rejected_as_a_duplicate()
+    {
+        var configuration = Default();
+        configuration[2].Name = "  light  ";
+
+        var result = CategoryConfigurationValidator.Validate(configuration);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(error => error.Contains("used more than once"));
+    }
+
+    [Fact]
     public void An_overlong_name_is_rejected()
     {
         var configuration = Default();

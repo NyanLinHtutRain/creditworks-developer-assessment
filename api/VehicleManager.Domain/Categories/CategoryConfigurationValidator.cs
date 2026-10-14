@@ -1,4 +1,3 @@
-using System.Globalization;
 using VehicleManager.Domain.Entities;
 
 namespace VehicleManager.Domain.Categories;
@@ -75,11 +74,11 @@ public static class CategoryConfigurationValidator
         }
         else if (category.MinWeightKg > CategoryRules.MaxWeightKg)
         {
-            errors.Add($"The lower weight bound for {label} cannot exceed {Format(CategoryRules.MaxWeightKg)} kg.");
+            errors.Add($"The lower weight bound for {label} cannot exceed {CategoryText.Weight(CategoryRules.MaxWeightKg)} kg.");
             sound = false;
         }
 
-        if (HasTooManyDecimalPlaces(category.MinWeightKg))
+        if (CategoryRules.HasTooManyDecimalPlaces(category.MinWeightKg))
         {
             errors.Add($"The lower weight bound for {label} must have at most {CategoryRules.WeightDecimalPlaces} decimal places.");
             sound = false;
@@ -92,11 +91,11 @@ public static class CategoryConfigurationValidator
 
         if (max > CategoryRules.MaxWeightKg)
         {
-            errors.Add($"The upper weight bound for {label} cannot exceed {Format(CategoryRules.MaxWeightKg)} kg.");
+            errors.Add($"The upper weight bound for {label} cannot exceed {CategoryText.Weight(CategoryRules.MaxWeightKg)} kg.");
             sound = false;
         }
 
-        if (HasTooManyDecimalPlaces(max))
+        if (CategoryRules.HasTooManyDecimalPlaces(max))
         {
             errors.Add($"The upper weight bound for {label} must have at most {CategoryRules.WeightDecimalPlaces} decimal places.");
             sound = false;
@@ -105,7 +104,7 @@ public static class CategoryConfigurationValidator
         if (max <= category.MinWeightKg)
         {
             errors.Add(
-                $"The upper weight bound for {label} must be greater than its lower bound of {Format(category.MinWeightKg)} kg.");
+                $"The upper weight bound for {label} must be greater than its lower bound of {CategoryText.Weight(category.MinWeightKg)} kg.");
             sound = false;
         }
 
@@ -133,8 +132,8 @@ public static class CategoryConfigurationValidator
         if (ordered[0].MinWeightKg != 0m)
         {
             errors.Add(
-                $"The lowest category '{Name(ordered[0])}' must start at 0.00 kg so that every weight has a category, " +
-                $"but it starts at {Format(ordered[0].MinWeightKg)} kg.");
+                $"The lowest category '{CategoryText.DisplayName(ordered[0])}' must start at 0.00 kg so that every weight has a category, " +
+                $"but it starts at {CategoryText.Weight(ordered[0].MinWeightKg)} kg.");
         }
 
         for (var index = 0; index < ordered.Count - 1; index++)
@@ -151,14 +150,14 @@ public static class CategoryConfigurationValidator
             if (boundary < upper.MinWeightKg)
             {
                 errors.Add(
-                    $"A gap exists between {Format(boundary)} kg and {Format(upper.MinWeightKg)} kg. " +
+                    $"A gap exists between {CategoryText.Weight(boundary)} kg and {CategoryText.Weight(upper.MinWeightKg)} kg. " +
                     "Weights in that range would have no category.");
             }
             else if (boundary > upper.MinWeightKg)
             {
                 errors.Add(
-                    $"Categories '{Name(lower)}' and '{Name(upper)}' overlap between " +
-                    $"{Format(upper.MinWeightKg)} kg and {Format(boundary)} kg.");
+                    $"Categories '{CategoryText.DisplayName(lower)}' and '{CategoryText.DisplayName(upper)}' overlap between " +
+                    $"{CategoryText.Weight(upper.MinWeightKg)} kg and {CategoryText.Weight(boundary)} kg.");
             }
         }
     }
@@ -177,23 +176,13 @@ public static class CategoryConfigurationValidator
         {
             errors.Add(
                 $"Only one category can be open-ended, but {openEnded.Count} have no upper bound " +
-                $"({string.Join(", ", openEnded.Select(category => $"'{Name(category)}'"))}).");
+                $"({string.Join(", ", openEnded.Select(category => $"'{CategoryText.DisplayName(category)}'"))}).");
         }
         else if (!ReferenceEquals(openEnded[0], ordered[^1]))
         {
-            errors.Add($"The open-ended category '{Name(openEnded[0])}' must be the highest category.");
+            errors.Add($"The open-ended category '{CategoryText.DisplayName(openEnded[0])}' must be the highest category.");
         }
     }
-
-    // 500.000 carries no more precision than 500.00 and is allowed; 500.001 is not.
-    private static bool HasTooManyDecimalPlaces(decimal value) =>
-        value != Math.Round(value, CategoryRules.WeightDecimalPlaces);
-
-    private static string Format(decimal value) =>
-        value.ToString("0.00", CultureInfo.InvariantCulture);
-
-    private static string Name(Category category) =>
-        string.IsNullOrWhiteSpace(category.Name) ? "(unnamed)" : category.Name.Trim();
 
     private static string Describe(Category category, int index) =>
         string.IsNullOrWhiteSpace(category.Name)

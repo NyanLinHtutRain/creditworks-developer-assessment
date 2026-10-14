@@ -1,4 +1,3 @@
-using System.Globalization;
 using VehicleManager.Domain.Entities;
 
 namespace VehicleManager.Domain.Categories;
@@ -10,8 +9,8 @@ public static class CategoryConfigurationChanges
     // Splits the band holding splitPointKg; the new category takes everything up to that band's former upper bound.
     public static CategoryConfigurationResult Create(
         IEnumerable<Category> existing,
-        string name,
-        string icon,
+        string? name,
+        string? icon,
         decimal splitPointKg)
     {
         ArgumentNullException.ThrowIfNull(existing);
@@ -28,13 +27,13 @@ public static class CategoryConfigurationChanges
         if (bandToSplit is null)
         {
             return CategoryConfigurationResult.Failure(
-                $"No category covers {Format(splitPointKg)} kg, so there is no band to split there.");
+                $"No category covers {CategoryText.Weight(splitPointKg)} kg, so there is no band to split there.");
         }
 
         if (bandToSplit.MinWeightKg == splitPointKg)
         {
             return CategoryConfigurationResult.Failure(
-                $"Category '{Name(bandToSplit)}' already starts at {Format(splitPointKg)} kg. " +
+                $"Category '{CategoryText.DisplayName(bandToSplit)}' already starts at {CategoryText.Weight(splitPointKg)} kg. " +
                 "Choose a weight inside a band rather than one of its edges.");
         }
 
@@ -52,8 +51,8 @@ public static class CategoryConfigurationChanges
     public static CategoryConfigurationResult Edit(
         IEnumerable<Category> existing,
         int categoryId,
-        string name,
-        string icon,
+        string? name,
+        string? icon,
         decimal minWeightKg)
     {
         ArgumentNullException.ThrowIfNull(existing);
@@ -103,7 +102,7 @@ public static class CategoryConfigurationChanges
         if (ordered.Count == 1)
         {
             return CategoryConfigurationResult.Failure(
-                $"'{Name(ordered[0])}' is the only category and cannot be deleted. " +
+                $"'{CategoryText.DisplayName(ordered[0])}' is the only category and cannot be deleted. " +
                 "At least one category must remain so that every vehicle weight has one.");
         }
 
@@ -129,12 +128,20 @@ public static class CategoryConfigurationChanges
         var errors = new List<string>();
         var category = ordered[index];
 
+        if (CategoryRules.HasTooManyDecimalPlaces(minWeightKg))
+        {
+            errors.Add(
+                $"The lower weight bound for category '{CategoryText.DisplayName(category)}' " +
+                $"must have at most {CategoryRules.WeightDecimalPlaces} decimal places.");
+            return errors;
+        }
+
         if (index == 0)
         {
             if (minWeightKg != 0m)
             {
                 errors.Add(
-                    $"'{Name(category)}' is the lowest category and must start at 0.00 kg. " +
+                    $"'{CategoryText.DisplayName(category)}' is the lowest category and must start at 0.00 kg. " +
                     "To change where it ends, edit the lower bound of the category above it.");
             }
 
@@ -146,8 +153,8 @@ public static class CategoryConfigurationChanges
         if (minWeightKg <= below.MinWeightKg)
         {
             errors.Add(
-                $"{Format(minWeightKg)} kg is not above '{Name(below)}', which starts at " +
-                $"{Format(below.MinWeightKg)} kg. '{Name(category)}' must start above the category below it.");
+                $"{CategoryText.Weight(minWeightKg)} kg is not above '{CategoryText.DisplayName(below)}', which starts at " +
+                $"{CategoryText.Weight(below.MinWeightKg)} kg. '{CategoryText.DisplayName(category)}' must start above the category below it.");
         }
 
         if (index < ordered.Count - 1)
@@ -157,8 +164,8 @@ public static class CategoryConfigurationChanges
             if (minWeightKg >= above.MinWeightKg)
             {
                 errors.Add(
-                    $"{Format(minWeightKg)} kg is not below '{Name(above)}', which starts at " +
-                    $"{Format(above.MinWeightKg)} kg. '{Name(category)}' must start below the category above it.");
+                    $"{CategoryText.Weight(minWeightKg)} kg is not below '{CategoryText.DisplayName(above)}', which starts at " +
+                    $"{CategoryText.Weight(above.MinWeightKg)} kg. '{CategoryText.DisplayName(category)}' must start below the category above it.");
             }
         }
 
@@ -168,7 +175,7 @@ public static class CategoryConfigurationChanges
     private static List<Category> Order(IEnumerable<Category> categories) =>
         categories.OrderBy(category => category.MinWeightKg).ToList();
 
-    private static Category Build(string name, string icon, decimal minWeightKg, decimal? maxWeightKg) => new()
+    private static Category Build(string? name, string? icon, decimal minWeightKg, decimal? maxWeightKg) => new()
     {
         Name = name?.Trim() ?? string.Empty,
         Icon = icon?.Trim() ?? string.Empty,
@@ -184,10 +191,4 @@ public static class CategoryConfigurationChanges
         MinWeightKg = category.MinWeightKg,
         MaxWeightKg = category.MaxWeightKg
     };
-
-    private static string Format(decimal value) =>
-        value.ToString("0.00", CultureInfo.InvariantCulture);
-
-    private static string Name(Category category) =>
-        string.IsNullOrWhiteSpace(category.Name) ? "(unnamed)" : category.Name.Trim();
 }
