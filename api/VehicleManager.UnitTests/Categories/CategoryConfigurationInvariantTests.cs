@@ -62,12 +62,39 @@ public class CategoryConfigurationInvariantTests
 
         return random.Next(3) switch
         {
-            0 => CategoryConfigurationChanges.Create(
-                configuration, $"Category {step}", RandomIcon(random), RandomWeight(random)),
+            0 => RandomCreate(random, configuration, target, step),
             1 => CategoryConfigurationChanges.Edit(
                 configuration, target.Id, target.Name, target.Icon, RandomWeight(random)),
             _ => CategoryConfigurationChanges.Delete(configuration, target.Id)
         };
+    }
+
+    // Half the time build a range that fits an existing category, so real changes happen; otherwise anything goes.
+    private static CategoryConfigurationResult RandomCreate(
+        Random random, List<Category> configuration, Category band, int step)
+    {
+        var name = $"Category {step}";
+        var icon = RandomIcon(random);
+        var cut = RandomBetween(random, band.MinWeightKg, band.MaxWeightKg);
+
+        if (cut is { } point && random.Next(2) == 0)
+        {
+            return random.Next(2) == 0
+                ? CategoryConfigurationChanges.Create(configuration, name, icon, band.MinWeightKg, point)
+                : CategoryConfigurationChanges.Create(configuration, name, icon, point, band.MaxWeightKg);
+        }
+
+        decimal? max = random.Next(2) == 0 ? null : RandomWeight(random);
+        return CategoryConfigurationChanges.Create(configuration, name, icon, RandomWeight(random), max);
+    }
+
+    // A weight strictly between two bounds, or null when there is no room.
+    private static decimal? RandomBetween(Random random, decimal low, decimal? high)
+    {
+        var lowCents = (int)(low * 100) + 1;
+        var highCents = (int)((high ?? 7000m) * 100) - 1;
+
+        return lowCents > highCents ? null : random.Next(lowCents, highCents + 1) / 100m;
     }
 
     private static decimal RandomWeight(Random random) => random.Next(1, 600_000) / 100m;

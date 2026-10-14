@@ -9,6 +9,11 @@ internal static class CategoryText
     public static string Weight(decimal weightKg) =>
         weightKg.ToString("0.00", CultureInfo.InvariantCulture);
 
+    public static string Range(Category category) =>
+        category.MaxWeightKg is { } max
+            ? $"{Weight(category.MinWeightKg)} kg to {Weight(max)} kg"
+            : $"{Weight(category.MinWeightKg)} kg and above";
+
     public static string DisplayName(Category category) =>
         string.IsNullOrWhiteSpace(category.Name) ? "(unnamed)" : category.Name.Trim();
 }

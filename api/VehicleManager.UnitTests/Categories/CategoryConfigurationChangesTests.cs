@@ -124,7 +124,7 @@ public class CategoryConfigurationChangesTests
     [Fact]
     public void Creating_a_category_with_an_existing_name_is_rejected()
     {
-        var result = CategoryConfigurationChanges.Create(Default(), "light", "bus", 5000m);
+        var result = CategoryConfigurationChanges.Create(Default(), "light", "bus", 5000m, null);
 
         result.IsValid.Should().BeFalse();
         result.Errors.Should().ContainSingle().Which.Should().Contain("used more than once");
@@ -142,7 +142,7 @@ public class CategoryConfigurationChangesTests
     [Fact]
     public void A_null_name_or_icon_is_rejected_on_create_rather_than_throwing()
     {
-        var result = CategoryConfigurationChanges.Create(Default(), null, null, 5000m);
+        var result = CategoryConfigurationChanges.Create(Default(), null, null, 5000m, null);
 
         result.IsValid.Should().BeFalse();
         result.Errors.Should().Contain(error => error.Contains("A name is required"));
@@ -160,9 +160,9 @@ public class CategoryConfigurationChangesTests
     }
 
     [Fact]
-    public void Creating_a_category_splits_the_band_that_contains_the_split_point()
+    public void Creating_a_category_above_the_top_takes_the_open_ended_end()
     {
-        var result = CategoryConfigurationChanges.Create(Default(), "Super heavy", "bus", 5000m);
+        var result = CategoryConfigurationChanges.Create(Default(), "Super heavy", "bus", 5000m, null);
 
         result.IsValid.Should().BeTrue();
         result.Categories.Single(category => category.Name == "Heavy").MaxWeightKg.Should().Be(5000m);
@@ -174,9 +174,38 @@ public class CategoryConfigurationChangesTests
     }
 
     [Fact]
-    public void Creating_a_category_inside_a_closed_band_takes_that_bands_upper_bound()
+    public void Creating_a_category_below_the_bottom_takes_the_lower_piece()
     {
-        var result = CategoryConfigurationChanges.Create(Default(), "Midweight", "van", 1500m);
+        var result = CategoryConfigurationChanges.Create(Default(), "Extra light", "bus", 0m, 100m);
+
+        result.IsValid.Should().BeTrue();
+
+        var created = result.Categories.Single(category => category.Name == "Extra light");
+        created.MinWeightKg.Should().Be(0m);
+        created.MaxWeightKg.Should().Be(100m);
+
+        var light = result.Categories.Single(category => category.Name == "Light");
+        light.MinWeightKg.Should().Be(100m);
+        light.MaxWeightKg.Should().Be(500m);
+    }
+
+    [Fact]
+    public void Creating_a_category_at_the_start_of_a_middle_band_takes_the_lower_piece()
+    {
+        var result = CategoryConfigurationChanges.Create(Default(), "Lower medium", "van", 500m, 1000m);
+
+        result.IsValid.Should().BeTrue();
+        result.Categories.Single(category => category.Name == "Lower medium").MaxWeightKg.Should().Be(1000m);
+
+        var medium = result.Categories.Single(category => category.Name == "Medium");
+        medium.MinWeightKg.Should().Be(1000m);
+        medium.MaxWeightKg.Should().Be(2500m);
+    }
+
+    [Fact]
+    public void Creating_a_category_at_the_end_of_a_closed_band_takes_the_upper_piece()
+    {
+        var result = CategoryConfigurationChanges.Create(Default(), "Midweight", "van", 1500m, 2500m);
 
         result.IsValid.Should().BeTrue();
         result.Categories.Single(category => category.Name == "Medium").MaxWeightKg.Should().Be(1500m);
@@ -189,7 +218,7 @@ public class CategoryConfigurationChangesTests
     [Fact]
     public void The_first_category_created_covers_every_weight()
     {
-        var result = CategoryConfigurationChanges.Create(Array.Empty<Category>(), "All vehicles", "car", 0m);
+        var result = CategoryConfigurationChanges.Create(Array.Empty<Category>(), "All vehicles", "car", 0m, null);
 
         result.IsValid.Should().BeTrue();
         result.Categories.Should().ContainSingle();
@@ -197,32 +226,92 @@ public class CategoryConfigurationChangesTests
         result.Categories[0].MaxWeightKg.Should().BeNull();
     }
 
-    [Theory]
-    [InlineData("0.00", "Light")]
-    [InlineData("500.00", "Medium")]
-    [InlineData("2500.00", "Heavy")]
-    public void A_split_point_on_an_existing_edge_is_rejected(string splitPoint, string existingCategory)
+    [Fact]
+    public void The_first_category_created_must_still_start_at_zero()
     {
-        var result = CategoryConfigurationChanges.Create(Default(), "Duplicate", "car", Kg(splitPoint));
+        var result = CategoryConfigurationChanges.Create(Array.Empty<Category>(), "Late start", "car", 100m, null);
 
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().ContainSingle()
-            .Which.Should().Contain($"'{existingCategory}' already starts at");
+        result.Errors.Should().ContainSingle().Which.Should().Contain("must start at 0.00 kg");
     }
 
     [Fact]
-    public void A_split_point_outside_the_covered_range_is_rejected()
+    public void A_range_that_matches_a_closed_category_exactly_is_rejected()
     {
-        var result = CategoryConfigurationChanges.Create(Default(), "Negative", "car", -5m);
+        var result = CategoryConfigurationChanges.Create(Default(), "Duplicate", "car", 500m, 2500m);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().ContainSingle().Which.Should().Contain("'Medium' already covers exactly that range");
+    }
+
+    [Fact]
+    public void A_range_that_matches_the_open_ended_category_exactly_is_rejected()
+    {
+        var result = CategoryConfigurationChanges.Create(Default(), "Duplicate", "car", 2500m, null);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().ContainSingle().Which.Should().Contain("'Heavy' already covers exactly that range");
+    }
+
+    [Fact]
+    public void A_range_inside_a_category_that_touches_neither_end_is_rejected()
+    {
+        var result = CategoryConfigurationChanges.Create(Default(), "Inner", "car", 3000m, 5000m);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().ContainSingle()
+            .Which.Should().Contain("must start or end where an existing one does").And.Contain("'Heavy'");
+    }
+
+    [Fact]
+    public void A_range_that_runs_past_the_end_of_a_category_is_rejected()
+    {
+        var result = CategoryConfigurationChanges.Create(Default(), "Wide", "car", 400m, 600m);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().ContainSingle().Which.Should().Contain("runs past the end of 'Light'");
+    }
+
+    [Fact]
+    public void A_closed_range_cannot_be_created_inside_a_closed_category_without_an_upper_bound()
+    {
+        var result = CategoryConfigurationChanges.Create(Default(), "Open", "car", 1500m, null);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().ContainSingle().Which.Should().Contain("runs past the end of 'Medium'");
+    }
+
+    [Fact]
+    public void A_range_with_an_upper_bound_at_or_below_its_lower_bound_is_rejected()
+    {
+        var result = CategoryConfigurationChanges.Create(Default(), "Backwards", "car", 1000m, 800m);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().ContainSingle().Which.Should().Contain("must be greater than the lower bound");
+    }
+
+    [Fact]
+    public void A_range_with_more_than_two_decimal_places_is_rejected()
+    {
+        var result = CategoryConfigurationChanges.Create(Default(), "Precise", "car", Kg("1500.005"), 2500m);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().ContainSingle().Which.Should().Contain("at most 2 decimal places");
+    }
+
+    [Fact]
+    public void A_range_starting_outside_the_covered_weights_is_rejected()
+    {
+        var result = CategoryConfigurationChanges.Create(Default(), "Negative", "car", -5m, null);
 
         result.IsValid.Should().BeFalse();
         result.Errors.Should().ContainSingle().Which.Should().Contain("No category covers -5.00 kg");
     }
 
     [Fact]
-    public void A_split_point_the_database_cannot_store_is_rejected()
+    public void A_range_the_database_cannot_store_is_rejected()
     {
-        var result = CategoryConfigurationChanges.Create(Default(), "Enormous", "car", 1_000_000m);
+        var result = CategoryConfigurationChanges.Create(Default(), "Enormous", "car", 1_000_000m, null);
 
         result.IsValid.Should().BeFalse();
         result.Errors.Should().Contain(error => error.Contains("cannot exceed 999999.99 kg"));
@@ -231,7 +320,7 @@ public class CategoryConfigurationChangesTests
     [Fact]
     public void A_created_category_still_has_to_pass_validation()
     {
-        var result = CategoryConfigurationChanges.Create(Default(), "   ", "   ", 5000m);
+        var result = CategoryConfigurationChanges.Create(Default(), "   ", "   ", 5000m, null);
 
         result.IsValid.Should().BeFalse();
         result.Errors.Should().Contain(error => error.Contains("A name is required"));
@@ -241,7 +330,7 @@ public class CategoryConfigurationChangesTests
     [Fact]
     public void An_unrecognised_icon_is_rejected_when_creating()
     {
-        var result = CategoryConfigurationChanges.Create(Default(), "Super heavy", "rocket", 5000m);
+        var result = CategoryConfigurationChanges.Create(Default(), "Super heavy", "rocket", 5000m, null);
 
         result.IsValid.Should().BeFalse();
         result.Errors.Should().ContainSingle().Which.Should().Contain("is not recognised");
@@ -323,7 +412,7 @@ public class CategoryConfigurationChangesTests
         var configuration = Default();
 
         CategoryConfigurationChanges.Edit(configuration, HeavyId, "Heavy", "delivery-truck", 2000m);
-        CategoryConfigurationChanges.Create(configuration, "Super heavy", "bus", 5000m);
+        CategoryConfigurationChanges.Create(configuration, "Super heavy", "bus", 5000m, null);
         CategoryConfigurationChanges.Delete(configuration, MediumId);
 
         configuration.Should().HaveCount(3);

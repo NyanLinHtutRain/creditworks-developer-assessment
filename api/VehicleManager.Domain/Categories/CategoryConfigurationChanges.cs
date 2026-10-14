@@ -6,43 +6,77 @@ namespace VehicleManager.Domain.Categories;
 // Pure: inputs are never modified, and returned categories are reconciled by Id, where 0 means not yet saved.
 public static class CategoryConfigurationChanges
 {
-    // Splits the band holding splitPointKg; the new category takes everything up to that band's former upper bound.
+    // The new range must start or end where an existing category does; that category shrinks to make room.
     public static CategoryConfigurationResult Create(
         IEnumerable<Category> existing,
         string? name,
         string? icon,
-        decimal splitPointKg)
+        decimal minWeightKg,
+        decimal? maxWeightKg)
     {
         ArgumentNullException.ThrowIfNull(existing);
 
+        var rangeError = CheckNewRange(minWeightKg, maxWeightKg);
+
+        if (rangeError is not null)
+        {
+            return CategoryConfigurationResult.Failure(rangeError);
+        }
+
         var ordered = Order(existing);
+        var created = Build(name, icon, minWeightKg, maxWeightKg);
 
         if (ordered.Count == 0)
         {
-            return CategoryConfigurationValidator.Validate(new[] { Build(name, icon, 0m, null) });
+            return CategoryConfigurationValidator.Validate(new[] { created });
         }
 
-        var bandToSplit = ordered.FirstOrDefault(category => category.Includes(splitPointKg));
+        var band = ordered.FirstOrDefault(category => category.Includes(minWeightKg));
 
-        if (bandToSplit is null)
+        if (band is null)
         {
             return CategoryConfigurationResult.Failure(
-                $"No category covers {CategoryText.Weight(splitPointKg)} kg, so there is no band to split there.");
+                $"No category covers {CategoryText.Weight(minWeightKg)} kg, so a new category cannot start there.");
         }
 
-        if (bandToSplit.MinWeightKg == splitPointKg)
+        var bandName = CategoryText.DisplayName(band);
+
+        if (band.MaxWeightKg is { } bandEnd && (maxWeightKg is null || maxWeightKg > bandEnd))
         {
             return CategoryConfigurationResult.Failure(
-                $"Category '{CategoryText.DisplayName(bandToSplit)}' already starts at {CategoryText.Weight(splitPointKg)} kg. " +
-                "Choose a weight inside a band rather than one of its edges.");
+                $"The new range runs past the end of '{bandName}' ({CategoryText.Range(band)}). " +
+                "A new category must fit inside one existing category.");
+        }
+
+        var sharesStart = minWeightKg == band.MinWeightKg;
+        var sharesEnd = maxWeightKg == band.MaxWeightKg;
+
+        if (sharesStart && sharesEnd)
+        {
+            return CategoryConfigurationResult.Failure($"'{bandName}' already covers exactly that range.");
+        }
+
+        if (!sharesStart && !sharesEnd)
+        {
+            return CategoryConfigurationResult.Failure(
+                "A new category must start or end where an existing one does. " +
+                $"This range sits inside '{bandName}' ({CategoryText.Range(band)}) without touching either end.");
         }
 
         var proposed = ordered.Select(Copy).ToList();
-        var splitIndex = ordered.IndexOf(bandToSplit);
-        var formerUpperBound = bandToSplit.MaxWeightKg;
+        var index = ordered.IndexOf(band);
 
-        proposed[splitIndex].MaxWeightKg = splitPointKg;
-        proposed.Insert(splitIndex + 1, Build(name, icon, splitPointKg, formerUpperBound));
+        // Sharing the start with a closed new range means the new category takes the lower piece.
+        if (sharesStart && maxWeightKg is { } pieceEnd)
+        {
+            proposed[index].MinWeightKg = pieceEnd;
+            proposed.Insert(index, created);
+        }
+        else
+        {
+            proposed[index].MaxWeightKg = minWeightKg;
+            proposed.Insert(index + 1, created);
+        }
 
         return CategoryConfigurationValidator.Validate(proposed);
     }
@@ -170,6 +204,22 @@ public static class CategoryConfigurationChanges
         }
 
         return errors;
+    }
+
+    private static string? CheckNewRange(decimal minWeightKg, decimal? maxWeightKg)
+    {
+        if (CategoryRules.HasTooManyDecimalPlaces(minWeightKg) ||
+            (maxWeightKg is { } preciseEnd && CategoryRules.HasTooManyDecimalPlaces(preciseEnd)))
+        {
+            return $"Weights must have at most {CategoryRules.WeightDecimalPlaces} decimal places.";
+        }
+
+        if (maxWeightKg is { } end && end <= minWeightKg)
+        {
+            return $"The upper weight bound must be greater than the lower bound of {CategoryText.Weight(minWeightKg)} kg.";
+        }
+
+        return null;
     }
 
     private static List<Category> Order(IEnumerable<Category> categories) =>
