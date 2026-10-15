@@ -17,18 +17,22 @@ export class ApiError extends Error {
 
 const jsonHeaders = { 'Content-Type': 'application/json' }
 
+const unreachableMessage = 'The server could not be reached. Check that the API is running and try again.'
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   let response: Response
 
   try {
     response = await fetch(url, init)
   } catch {
-    throw new ApiError(0, 'The server could not be reached. Check that the API is running and try again.')
+    throw new ApiError(0, unreachableMessage)
   }
 
   if (!response.ok) {
     const problem: ProblemDetails | null = await response.json().catch(() => null)
-    throw new ApiError(response.status, problem?.title ?? 'Something went wrong. Please try again.', problem?.errors)
+
+    // The API always answers errors with a JSON body. Without one, the request never reached it (for example, the dev proxy found it down).
+    throw new ApiError(response.status, problem?.title ?? unreachableMessage, problem?.errors)
   }
 
   return response.status === 204 ? (undefined as T) : ((await response.json()) as T)
