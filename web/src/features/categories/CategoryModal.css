@@ -1,0 +1,18 @@
+/* Lay the icon tiles out in a row instead of Carbon's default stack. */
+.category-icon-picker > div {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+}
+
+.category-icon-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.category-field-error {
+  color: #da1e28;
+  font-size: 0.75rem;
+}
