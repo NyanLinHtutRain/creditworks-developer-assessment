@@ -5,6 +5,7 @@ A web application for managing vehicles and weight categories, built for the Cre
 - Add vehicles and view them in a list that can be sorted by owner, manufacturer, year or weight.
 - Create, edit and delete weight categories, each with a weight range and an icon.
 - A vehicle's category is calculated from its weight, so changing a range updates every vehicle straight away.
+- Editing a category's **From** or **To** also moves the matching boundary of its neighbour, and the form shows this before you save. So gaps and overlaps cannot be entered. Setting Medium to start at 600 moves Light's end to 600.
 - Boundary rule: a category includes its **From** weight and excludes its **To** weight, so 500.00 kg is Medium, not Light.
 
 | Layer | Technology |
@@ -21,6 +22,15 @@ A web application for managing vehicles and weight categories, built for the Cre
 - .NET 8 SDK
 - Node.js 20.19 or newer (or 22.12 or newer) with npm
 - Docker Desktop, for the database. On Apple Silicon the SQL Server image runs under emulation.
+
+## Build it
+
+```bash
+dotnet build api/VehicleManager.sln
+cd web && npm install && npm run build
+```
+
+Running and testing build the API automatically, so this step is optional.
 
 ## Run it
 

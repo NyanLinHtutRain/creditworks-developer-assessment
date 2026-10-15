@@ -24,7 +24,7 @@ public class ErrorResponseTests(ApiFactory factory) : IClassFixture<ApiFactory>
             : await client.PostAsync(url, new StringContent(json, Encoding.UTF8, "application/json"));
 
         response.StatusCode.Should().Be(expected);
-        response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
+        response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
         (await response.Content.ReadAsStringAsync()).Should().Contain($"\"status\":{(int)expected}").And.NotContain("Exception");
     }
 }

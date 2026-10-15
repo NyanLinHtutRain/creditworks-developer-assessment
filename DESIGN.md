@@ -62,6 +62,8 @@ Moving only one range can never be valid on its own: raising the end of Medium a
 - **Create:** the new range must start or end where an existing category does and fit inside it. That category shrinks to make room.
 - **Delete:** the category below takes over the range. If the lowest is deleted, the one above drops to 0. The last category cannot be deleted.
 
+Because of this, a gap or an overlap cannot be entered through the screen: setting Medium to start at 600 moves Light's end to 600 instead of leaving a hole. The edit and add forms say which neighbours will change before you save, and the delete dialog names the category that takes over the range. The full-set validator still guards the API and is covered by tests for gaps and overlaps.
+
 Each change is built in memory, validated as a whole set, and saved in one serializable transaction. If validation fails, nothing is saved and the API returns the reasons. A random-sequence test applies many changes and checks the set is valid after each.
 
 ### Existing vehicles
@@ -80,7 +82,7 @@ Because the category is calculated on read, the list always shows the current co
 | Kind | Count | What it covers |
 |---|---|---|
 | Unit (`VehicleManager.UnitTests`) | 100 | Category lookup and boundary values, gaps, overlaps, every change type, an invariant test over random changes, vehicle validation |
-| Integration (`VehicleManager.IntegrationTests`) | 25 | The real API on SQL Server: create, edit and delete categories, vehicle creation, sorting on every field, a boundary move changing a vehicle's category, error responses |
+| Integration (`VehicleManager.IntegrationTests`) | 26 | The real API on SQL Server: the seeded categories, create, edit and delete categories, vehicle creation, sorting on every field, a boundary move changing a vehicle's category, error responses |
 
 The integration tests use SQL Server in the Docker container, not SQLite, because EF Core's SQLite provider cannot sort by `decimal` columns. Each class gets a throwaway database that is dropped afterwards. The web app has no automated tests; it was checked by hand and in a headless browser.
 
@@ -102,7 +104,7 @@ The integration tests use SQL Server in the Docker container, not SQLite, becaus
 - No CORS. The web app and API are meant to share an origin, as the Vite proxy does in development.
 - Local-only settings: the `sa` login and `TrustServerCertificate=True`. A real deployment needs a login with minimal rights and a valid certificate. `AllowedHosts` is `*`.
 - Migrations apply automatically only in Development.
-- Simultaneous category edits are kept safe by a serializable transaction. In a test with 30 edits at once the categories stayed valid. When SQL Server cancels one request as a deadlock victim, that request returns 500 instead of the 409 described above, and nothing is saved for it.
+- Simultaneous category edits are kept safe by a serializable transaction. In a manual stress test with 30 edits at once the categories stayed valid. When SQL Server cancels one request as a deadlock victim, that request returns 500 instead of the 409 described above, and nothing is saved for it.
 - The .NET 8 note is in the README.
 
 ## What I would improve next
