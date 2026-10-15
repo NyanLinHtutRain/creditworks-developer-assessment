@@ -7,6 +7,13 @@ export interface Category {
   maxWeightKg: number | null
 }
 
+export interface CategoryRequest {
+  name: string
+  icon: string
+  minWeightKg: number
+  maxWeightKg: number | null
+}
+
 export interface Manufacturer {
   id: number
   name: string
