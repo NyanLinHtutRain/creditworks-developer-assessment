@@ -28,6 +28,13 @@ export interface Vehicle {
   category: VehicleCategory | null
 }
 
+export interface VehicleRequest {
+  ownerName: string
+  manufacturerId: number
+  yearOfManufacture: number
+  weightKg: number
+}
+
 export type VehicleSortField = 'owner' | 'manufacturer' | 'year' | 'weight'
 
 export type SortDirection = 'asc' | 'desc'
