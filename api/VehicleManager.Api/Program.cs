@@ -1,4 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using VehicleManager.Api.Endpoints;
+using VehicleManager.Api.ErrorHandling;
+using VehicleManager.Api.Services;
 using VehicleManager.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -6,10 +9,17 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
 
+builder.Services.AddScoped<CategoryService>();
+
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {
@@ -27,4 +37,9 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok" }))
     .WithName("GetHealth")
     .WithOpenApi();
 
+app.MapCategoryEndpoints();
+
 app.Run();
+
+// Lets the integration tests start the app in memory.
+public partial class Program { }
