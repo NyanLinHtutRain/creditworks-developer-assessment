@@ -19,6 +19,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             entity.Property(manufacturer => manufacturer.Name).HasMaxLength(100).IsRequired();
             entity.HasIndex(manufacturer => manufacturer.Name).IsUnique();
+
+            entity.HasData(
+                new Manufacturer { Id = 1, Name = "Mazda" },
+                new Manufacturer { Id = 2, Name = "Mercedes" },
+                new Manufacturer { Id = 3, Name = "Honda" },
+                new Manufacturer { Id = 4, Name = "Ferrari" },
+                new Manufacturer { Id = 5, Name = "Toyota" });
         });
 
         // The database cannot check that ranges are gap-free, since that spans rows; the category service does.
@@ -31,6 +38,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
             // SQL Server's default collation is case-insensitive, matching the validator's name check.
             entity.HasIndex(category => category.Name).IsUnique();
+
+            entity.HasData(
+                new Category { Id = 1, Name = "Light", Icon = "car", MinWeightKg = 0m, MaxWeightKg = 500m },
+                new Category { Id = 2, Name = "Medium", Icon = "van", MinWeightKg = 500m, MaxWeightKg = 2500m },
+                new Category { Id = 3, Name = "Heavy", Icon = "delivery-truck", MinWeightKg = 2500m, MaxWeightKg = null });
 
             entity.ToTable(table =>
             {
