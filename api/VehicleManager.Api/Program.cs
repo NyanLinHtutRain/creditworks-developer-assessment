@@ -1,4 +1,10 @@
+using Microsoft.EntityFrameworkCore;
+using VehicleManager.Infrastructure.Persistence;
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -13,7 +19,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// Liveness probe. Used by docker compose to gate dependent services.
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }))
     .WithName("GetHealth")
     .WithOpenApi();
