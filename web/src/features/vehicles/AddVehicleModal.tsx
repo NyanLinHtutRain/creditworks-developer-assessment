@@ -68,6 +68,7 @@ export function AddVehicleModal({ onClose, onSaved }: AddVehicleModalProps) {
         <TextInput
           id="vehicle-owner"
           labelText="Owner's name"
+          maxLength={100}
           data-modal-primary-focus
           value={values.ownerName}
           onChange={change('ownerName')}

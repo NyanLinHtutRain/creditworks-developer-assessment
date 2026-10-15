@@ -1,8 +1,17 @@
-/* Lay the icon tiles out in a row instead of Carbon's default stack. */
+/* Lay the icon tiles out in a row that wraps on narrow screens, instead of Carbon's default stack. */
 .category-icon-picker > div {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
   gap: 0.5rem;
+}
+
+/* Put the title above the list of changes instead of beside it. */
+.category-change-notes {
+  max-width: none;
+}
+
+.category-change-notes .cds--inline-notification__text-wrapper {
+  flex-direction: column;
 }
 
 .category-icon-tile {

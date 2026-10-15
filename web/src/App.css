@@ -2,5 +2,16 @@
 .app-content {
   max-width: 1584px;
   margin: 0 auto;
-  padding: 5rem 2rem 2rem;
+  padding: 4.5rem 2rem 2rem;
+}
+
+.app-nav {
+  max-width: 24rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 42rem) {
+  .app-content {
+    padding-inline: 1rem;
+  }
 }

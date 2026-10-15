@@ -58,10 +58,18 @@ export function CategoriesPage() {
           onDelete={(category) => setDialog({ kind: 'delete', category })}
         />
       )}
-      {dialog?.kind === 'add' && <CategoryModal category={null} onClose={() => setDialog(null)} onSaved={done} />}
+      {dialog?.kind === 'add' && (
+        <CategoryModal
+          category={null}
+          categories={categories ?? []}
+          onClose={() => setDialog(null)}
+          onSaved={done}
+        />
+      )}
       {dialog?.kind === 'edit' && categories && (
         <CategoryModal
           category={dialog.category}
+          categories={categories}
           rules={editRules(categories, dialog.category)}
           onClose={() => setDialog(null)}
           onSaved={done}

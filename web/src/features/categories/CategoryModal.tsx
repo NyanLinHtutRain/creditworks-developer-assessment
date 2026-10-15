@@ -1,4 +1,4 @@
-import { Modal, RadioTile, Stack, TextInput, TileGroup } from '@carbon/react'
+import { InlineNotification, Modal, RadioTile, Stack, TextInput, TileGroup } from '@carbon/react'
 import { useState, type ChangeEvent } from 'react'
 import { createCategory, updateCategory } from '../../api/categories.ts'
 import { errorMessages } from '../../api/client.ts'
@@ -9,6 +9,7 @@ import {
   addRules,
   categoryToForm,
   emptyCategoryForm,
+  neighbourNotes,
   toCategoryRequest,
   validateCategoryForm,
   type CategoryFormRules,
@@ -19,13 +20,15 @@ import './CategoryModal.css'
 interface CategoryModalProps {
   // The category being edited, or null to add a new one.
   category: Category | null
+  // Every category, in weight order, to preview which neighbours a change moves.
+  categories: Category[]
   rules?: CategoryFormRules
   onClose: () => void
   onSaved: () => void
 }
 
 // Rendered only while open, so every opening starts from the category's current values.
-export function CategoryModal({ category, rules = addRules, onClose, onSaved }: CategoryModalProps) {
+export function CategoryModal({ category, categories, rules = addRules, onClose, onSaved }: CategoryModalProps) {
   const [values, setValues] = useState<CategoryFormValues>(category ? categoryToForm(category) : emptyCategoryForm)
   const [submitted, setSubmitted] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -33,6 +36,7 @@ export function CategoryModal({ category, rules = addRules, onClose, onSaved }: 
 
   const fieldErrors = submitted ? validateCategoryForm(values, rules) : {}
   const title = category ? 'Edit category' : 'Add category'
+  const notes = neighbourNotes(categories, category, values)
 
   const change = (field: keyof CategoryFormValues) => (event: ChangeEvent<HTMLInputElement>) =>
     setValues((previous) => ({ ...previous, [field]: event.target.value }))
@@ -135,6 +139,21 @@ export function CategoryModal({ category, rules = addRules, onClose, onSaved }: 
           invalid={!!fieldErrors.to}
           invalidText={fieldErrors.to}
         />
+        {notes.length > 0 && (
+          <InlineNotification
+            className="category-change-notes"
+            kind="info"
+            title="Neighbouring categories will also change"
+            hideCloseButton
+            lowContrast
+          >
+            <ul>
+              {notes.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+          </InlineNotification>
+        )}
       </Stack>
     </Modal>
   )
