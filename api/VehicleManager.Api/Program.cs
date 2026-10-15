@@ -23,6 +23,9 @@ var app = builder.Build();
 
 app.UseExceptionHandler();
 
+// Failures the framework answers itself, such as an unknown URL, get the same problem body as the rest.
+app.UseStatusCodePages();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
