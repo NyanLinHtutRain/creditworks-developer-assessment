@@ -9,7 +9,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
 
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<CategoryService>();
+builder.Services.AddScoped<VehicleService>();
 
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
@@ -38,6 +40,8 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok" }))
     .WithOpenApi();
 
 app.MapCategoryEndpoints();
+app.MapManufacturerEndpoints();
+app.MapVehicleEndpoints();
 
 app.Run();
 

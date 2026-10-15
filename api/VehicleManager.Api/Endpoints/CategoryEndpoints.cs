@@ -1,4 +1,5 @@
 using VehicleManager.Api.Contracts;
+using VehicleManager.Api.ErrorHandling;
 using VehicleManager.Api.Services;
 
 namespace VehicleManager.Api.Endpoints;
@@ -47,16 +48,12 @@ public static class CategoryEndpoints
         });
     }
 
-    private static IResult MissingStart() => Invalid(["A starting weight is required."]);
+    private const string InvalidTitle = "The category change is not valid.";
+
+    private static IResult MissingStart() => ProblemResults.Invalid(InvalidTitle, ["A starting weight is required."]);
 
     private static IResult Failure(CategoryChangeResult result) =>
         result.Status == ChangeStatus.NotFound
-            ? Results.Problem(title: "Category not found.", statusCode: StatusCodes.Status404NotFound)
-            : Invalid(result.Errors ?? []);
-
-    private static IResult Invalid(IReadOnlyList<string> errors) =>
-        Results.Problem(
-            title: "The category change is not valid.",
-            statusCode: StatusCodes.Status400BadRequest,
-            extensions: new Dictionary<string, object?> { ["errors"] = errors });
+            ? ProblemResults.NotFound("Category not found.")
+            : ProblemResults.Invalid(InvalidTitle, result.Errors ?? []);
 }
