@@ -7,9 +7,10 @@ namespace VehicleManager.UnitTests.Categories;
 
 public class CategoryResolverTests
 {
+    // Zero is covered because the lowest band's lower bound is inclusive; rejecting it is vehicle validation's job.
     [Theory]
+    [InlineData("0.00", "Light")]
     [InlineData("0.01", "Light")]
-    [InlineData("250.50", "Light")]
     [InlineData("499.99", "Light")]
     [InlineData("500.00", "Medium")]
     [InlineData("500.01", "Medium")]
@@ -17,7 +18,7 @@ public class CategoryResolverTests
     [InlineData("2499.99", "Medium")]
     [InlineData("2500.00", "Heavy")]
     [InlineData("2500.01", "Heavy")]
-    [InlineData("250000.00", "Heavy")]
+    [InlineData("999999.99", "Heavy")]
     public void Resolve_maps_a_weight_to_the_band_that_covers_it(string weight, string expectedCategory)
     {
         var resolved = CategoryResolver.Resolve(Default(), Kg(weight));
@@ -27,16 +28,7 @@ public class CategoryResolverTests
     }
 
     [Fact]
-    public void A_weight_sitting_exactly_on_a_boundary_belongs_to_the_upper_band_only()
-    {
-        var matches = Default().Where(category => category.Includes(Kg("500.00"))).ToList();
-
-        matches.Should().ContainSingle("a weight must never resolve to two categories")
-            .Which.Name.Should().Be("Medium");
-    }
-
-    [Fact]
-    public void Every_boundary_in_the_configuration_resolves_to_exactly_one_category()
+    public void A_weight_on_a_boundary_belongs_to_exactly_one_category()
     {
         var configuration = Default();
 
@@ -45,18 +37,6 @@ public class CategoryResolverTests
             configuration.Count(category => category.Includes(boundary))
                 .Should().Be(1, $"{boundary} kg sits on a boundary and must have one owner");
         }
-    }
-
-    [Fact]
-    public void The_open_ended_band_covers_everything_above_its_lower_bound()
-    {
-        CategoryResolver.Resolve(Default(), CategoryRules.MaxWeightKg)!.Name.Should().Be("Heavy");
-    }
-
-    [Fact]
-    public void A_weight_of_exactly_zero_falls_in_the_lowest_band()
-    {
-        CategoryResolver.Resolve(Default(), 0m)!.Name.Should().Be("Light");
     }
 
     [Theory]
